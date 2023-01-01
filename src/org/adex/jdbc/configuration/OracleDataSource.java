@@ -1,19 +1,19 @@
 package org.adex.jdbc.configuration;
 
-public class MySqlDataSource extends DataSource {
+public class OracleDataSource extends DataSource {
 
-    private static final String MYSQL_DRIVER = "com.mysql.cj.jdbc.Driver";
-    private static final String MYSQL_BRIDGE = "jdbc:mysql:";
+    private static final String ORACLE_DRIVER = "oracle.jdbc.driver.OracleDriver";
+    private static final String ORACLE_BRIDGE = "jdbc:oracle:thin:";
 
-    private static final String URL_TEMPLATE = "%s//%s:%s/%s";
+    private static final String URL_TEMPLATE = "%s@%s:%s:%s";
 
-    public MySqlDataSource(AbstractBuilder builder) {
+    public OracleDataSource(AbstractBuilder builder) {
         super(builder);
     }
 
     @Override
     String getDriver() {
-        return MYSQL_DRIVER;
+        return ORACLE_DRIVER;
     }
 
     @Override
@@ -23,7 +23,7 @@ public class MySqlDataSource extends DataSource {
 
     @Override
     String getBridge() {
-        return MYSQL_BRIDGE;
+        return ORACLE_BRIDGE;
     }
 
     public static class Builder extends AbstractBuilder {
@@ -37,5 +37,4 @@ public class MySqlDataSource extends DataSource {
             return new MySqlDataSource(this);
         }
     }
-
 }

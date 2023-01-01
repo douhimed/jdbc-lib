@@ -1,5 +1,7 @@
 package org.adex.jdbc.configuration;
 
+import org.adex.utils.StringUtils;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.Objects;
@@ -18,7 +20,21 @@ public abstract class DataSource {
 
     protected String url;
 
+    public DataSource(AbstractBuilder builder) {
+        url = String.format(getUrlTemplate(),
+                getBridge(),
+                StringUtils.isBlank(builder.host) ? DEFAULT_HOST : builder.host,
+                StringUtils.isBlank(builder.port) ? DEFAULT_POST : builder.port,
+                builder.databaseName);
+        userName = StringUtils.isBlank(builder.userName) ? DEFAULT_USERNAME : builder.userName;
+        password = StringUtils.isBlank(builder.password) ? StringUtils.EMPTY : builder.password;
+    }
+
     abstract String getDriver();
+
+    abstract String getUrlTemplate();
+
+    abstract String getBridge();
 
     public Connection getConnection() {
         if (Objects.isNull(connection)) {
