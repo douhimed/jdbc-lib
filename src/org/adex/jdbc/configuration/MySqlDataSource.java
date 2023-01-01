@@ -7,7 +7,7 @@ public class MySqlDataSource extends DataSource {
     private static final String MYSQL_DRIVER = "com.mysql.cj.jdbc.Driver";
     private static final String MYSQL_BRIDGE = "jdbc:mysql:";
 
-    public MySqlDataSource(Builder builder) {
+    public MySqlDataSource(AbstractBuilder builder) {
         url = String.format("%s//%s:%s/%s",
                 MYSQL_BRIDGE,
                 StringUtils.isBlank(builder.host) ? DEFAULT_HOST : builder.host,
@@ -22,39 +22,15 @@ public class MySqlDataSource extends DataSource {
         return MYSQL_DRIVER;
     }
 
-    public static class Builder {
+    public static class Builder extends AbstractBuilder {
 
-        private final String databaseName;
-        private String host;
-        private String port;
-        private String userName;
-        private String password;
 
         public Builder(String databaseName) {
-            this.databaseName = databaseName;
+            super(databaseName);
         }
 
-        public Builder host(String host) {
-            this.host = host;
-            return this;
-        }
-
-        public Builder port(int port) {
-            this.port = String.valueOf(port);
-            return this;
-        }
-
-        public Builder userName(String userName) {
-            this.userName = userName;
-            return this;
-        }
-
-        public Builder password(String password) {
-            this.password = password;
-            return this;
-        }
-
-        public DataSource build() {
+        @Override
+        public DataSource reelBuild() {
             return new MySqlDataSource(this);
         }
     }

@@ -36,4 +36,43 @@ public abstract class DataSource {
         return connection;
     }
 
+    public abstract static class AbstractBuilder {
+
+        protected final String databaseName;
+        protected String host;
+        protected String port;
+        protected String userName;
+        protected String password;
+
+        public AbstractBuilder(String databaseName) {
+            this.databaseName = databaseName;
+        }
+
+        public AbstractBuilder host(String host) {
+            this.host = host;
+            return this;
+        }
+
+        public AbstractBuilder port(int port) {
+            this.port = String.valueOf(port);
+            return this;
+        }
+
+        public AbstractBuilder userName(String userName) {
+            this.userName = userName;
+            return this;
+        }
+
+        public AbstractBuilder password(String password) {
+            this.password = password;
+            return this;
+        }
+
+        public DataSource build() {
+            return this.reelBuild();
+        }
+
+        protected abstract DataSource reelBuild();
+    }
+
 }

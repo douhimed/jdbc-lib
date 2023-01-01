@@ -1,6 +1,7 @@
 package org.adex.jdbc.impl;
 
 import org.adex.jdbc.CrudRepository;
+import org.adex.jdbc.exceptions.DataSourceException;
 import org.adex.jdbc.annotations.Id;
 import org.adex.jdbc.annotations.NotMapped;
 
@@ -10,7 +11,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class AbstractCrudRepository<T, R> implements CrudRepository<T, R> {
 
@@ -40,23 +40,23 @@ public class AbstractCrudRepository<T, R> implements CrudRepository<T, R> {
     }
 
     @Override
-    public List<T> findAll() {
-        final List<T> res = new ArrayList<>();
+    public List<T> findAll() throws DataSourceException {
         try (PreparedStatement preparedStatement = connection.prepareStatement(Template.SELECT_ALL.getScript(tableName));
              ResultSet resultSet = preparedStatement.executeQuery()) {
+            final List<T> res = new ArrayList<>();
             while (resultSet.next()) {
                 T newObject = targe.newInstance();
                 mapperFields(newObject, resultSet);
                 res.add(newObject);
             }
+            return res;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
-        return res;
     }
 
     @Override
-    public void save(T object) {
+    public void save(T object) throws DataSourceException {
         final List<String> columnsToSave = new ArrayList<>();
         final List<String> valuesToSave = new ArrayList<>();
         initColumnsAndValuesToSave(object, columnsToSave, valuesToSave);
@@ -64,85 +64,91 @@ public class AbstractCrudRepository<T, R> implements CrudRepository<T, R> {
         try (PreparedStatement preparedStatement = connection.prepareStatement(saveScript)) {
             preparedStatement.executeUpdate();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
     }
 
     @Override
-    public T findById(R value) {
-        String findByIdSql = Template.FIND_BY_ID.getScript(tableName, idColumn.getName().toLowerCase(), value.toString());
-        T result = null;
-        try (PreparedStatement statement = connection.prepareStatement(findByIdSql);
+    public Optional<T> findById(R value) throws DataSourceException {
+        try (PreparedStatement statement = connection.prepareStatement(Template.FIND_BY_ID.getScript(tableName, idColumn.getName().toLowerCase(), value.toString()));
              ResultSet resultSet = statement.executeQuery()) {
+            T result = null;
             if (resultSet.next()) {
                 result = targe.newInstance();
                 mapperFields(result, resultSet);
             }
+            return Optional.ofNullable(result);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
-        return result;
     }
 
     @Override
-    public void deleteById(R id) {
-        final String deleteScript = Template.DELETE.getScript(tableName, idColumn.getName().toLowerCase(), id.toString());
-        try (PreparedStatement preparedStatement = connection.prepareStatement(deleteScript)) {
+    public void deleteById(R id) throws DataSourceException {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(Template.DELETE.getScript(tableName, idColumn.getName().toLowerCase(), id.toString()))) {
             preparedStatement.executeUpdate();
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
     }
 
     @Override
-    public void delete(T object) {
+    public void delete(T object) throws DataSourceException {
         try {
             boolean accessible = idColumn.isAccessible();
             idColumn.setAccessible(true);
             deleteById((R) idColumn.get(object));
             idColumn.setAccessible(accessible);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
     }
 
     @Override
-    public void update(T object) {
+    public void update(T object) throws DataSourceException {
         final String valuesToSet = getStringValuesToSetForUpdate(object);
         final String whereId = String.format("%s=%s", idColumn.getName().toLowerCase(), getFieldValue(idColumn, object));
         final String updateSql = Template.UPDATE.getScript(tableName, valuesToSet, whereId);
         try (PreparedStatement preparedStatement = connection.prepareStatement(updateSql)) {
             preparedStatement.executeUpdate();
+
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
     }
 
-    private String getStringValuesToSetForUpdate(T object) {
-        return columns
-                .stream()
-                .map(column -> String.format("%s='%s'", column.getName().toLowerCase(), getFieldValue(column, object)))
-                .collect(Collectors.joining(","));
-    }
-
-    private void initColumnsAndValuesToSave(T object, List<String> columnsToSave, List<String> valuesToSave) {
-        for (Field field : columns) {
-            columnsToSave.add(field.getName().toLowerCase());
-            valuesToSave.add(String.format("'%s'", getFieldValue(field, object).toString()));
+    private String getStringValuesToSetForUpdate(T object) throws DataSourceException {
+        try {
+            StringJoiner joiner = new StringJoiner(",");
+            for (Field column : columns)
+                joiner.add(String.format("%s='%s'", column.getName().toLowerCase(), getFieldValue(column, object)));
+            return joiner.toString();
+        } catch (Exception e) {
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
     }
 
-    private Object getFieldValue(Field field, T object) {
-        Object value = null;
+    private void initColumnsAndValuesToSave(T object, List<String> columnsToSave, List<String> valuesToSave) throws DataSourceException {
+        try {
+            for (Field field : columns) {
+                columnsToSave.add(field.getName().toLowerCase());
+                valuesToSave.add(String.format("'%s'", getFieldValue(field, object).toString()));
+            }
+        } catch (Exception e) {
+            throw new DataSourceException(e.getMessage(), e.getCause());
+        }
+    }
+
+    private Object getFieldValue(Field field, T object) throws DataSourceException {
         try {
             boolean accessibilite = field.isAccessible();
             field.setAccessible(true);
-            value = field.get(object);
+            Object value = field.get(object);
             field.setAccessible(accessibilite);
+            return value;
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new DataSourceException(e.getMessage(), e.getCause());
         }
-        return value;
     }
 
     private void mapperFields(T newObject, ResultSet resultSet) throws NoSuchFieldException, IllegalAccessException, SQLException {
